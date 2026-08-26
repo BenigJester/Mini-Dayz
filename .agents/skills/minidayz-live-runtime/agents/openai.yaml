@@ -1,0 +1,4 @@
+interface:
+  display_name: "MiniDayZ Live Runtime"
+  short_description: "Inspect and hot-patch the MiniDayZ WebView"
+  default_prompt: "Use $minidayz-live-runtime to inspect the current device screen and hot-patch the reported MiniDayZ UI issue without installing unless I ask."

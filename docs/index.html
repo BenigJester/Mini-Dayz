@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8" />
@@ -9,7 +9,7 @@
 	<link rel="manifest" href="appmanifest.json" />
 	
 	<!-- Allow fullscreen mode on iOS devices. (These are Apple specific meta tags.) -->
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black" />
 	<link rel="apple-touch-icon" sizes="256x256" href="icon-256.png" />
@@ -26,13 +26,30 @@
 			margin: 0;
 		}
 		html, body {
+			width: 100%;
+			height: 100%;
 			background: #000;
 			color: #fff;
 			overflow: hidden;
+			overscroll-behavior: none;
 			touch-action: none;
 			-ms-touch-action: none;
+			-webkit-text-size-adjust: 100%;
+			text-size-adjust: 100%;
+		}
+		body {
+			position: fixed;
+			inset: 0;
+		}
+		#c2canvasdiv {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
 		}
 		canvas {
+			display: block;
 			touch-action-delay: none;
 			touch-action: none;
 			-ms-touch-action: none;
@@ -66,12 +83,16 @@
 	
 	<!-- Construct 2 exported games require jQuery. -->
 	<script src="jquery-3.4.1.min.js"></script>
+	<script src="branding-cleanup.js"></script>
+	<script src="text-compatibility.js"></script>
+	<script src="screen-compatibility.js"></script>
 
 
 	
     <!-- The runtime script.  You can rename it, but don't forget to rename the reference here as well.
     This file will have been minified and obfuscated if you enabled "Minify script" during export. -->
 	<script src="c2runtime.js"></script>
+	<script src="game-ui-compatibility.js"></script>
 
     <script>
 		// Start the Construct 2 project running on window load.
@@ -120,5 +141,5 @@
 			}
 		};
     </script>
-</body> 
-</html> 
+</body>
+</html>

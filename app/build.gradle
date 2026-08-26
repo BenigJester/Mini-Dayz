@@ -1,0 +1,44 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.jester.minidayz"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.jester.minidayz"
+        minSdk 23
+        targetSdk 36
+        versionCode 150
+        versionName "1.5.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            shrinkResources false
+        }
+
+        release {
+            // R8 removes unused bytecode/resources and renames the remaining app code.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    sourceSets {
+        main.assets.srcDirs = ["src/main/assets", "../docs"]
+    }
+
+    androidResources {
+        // Keep streamed game audio seekable inside the WebView.
+        noCompress += ["ogg", "m4a", "mp3", "wav"]
+    }
+}
