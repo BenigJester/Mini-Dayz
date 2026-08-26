@@ -9,11 +9,11 @@ game in `docs/` is packaged in a lightweight native WebView shell, supports
 modern Android landscape screens, and has a replacement touch-control overlay.
 
 The current debug build succeeds and package `com.jester.minidayz` is installed
-and running on the connected Infinix device. The newest native-menu-scenery
-change is active as a reversible live patch and is present in the rebuilt APK,
-but that APK has not been installed. The renamed package started with fresh
-WebView storage. The older `io.github.nextdev65.minidayz` package was not
-present after installation.
+and running on the connected Infinix device. The installed build includes the
+native-menu scenery and Android game-category declaration. Android's game
+service recognizes the package and currently reports standard mode. The
+renamed package started with fresh WebView storage. The older
+`io.github.nextdev65.minidayz` package is not installed.
 
 ## Protect the working tree
 
@@ -35,6 +35,11 @@ before committing.
 - Version: `1.5.0`; version code: `150`.
 - Minimum SDK 23; compile/target SDK 36; Java 17.
 - Immersive, hardware-accelerated, sensor-landscape WebView shell.
+- Declares `android:appCategory="game"` for modern Android game detection and
+  the legacy `android:isGame="true"` fallback for Android 5.0-7.1/OEM game
+  launchers. No app-owned Game Mode configuration is declared, so supported
+  Android 12+ devices remain free to apply their default OEM Game Mode
+  interventions instead of the app accidentally overriding them.
 - Game progress remains in persistent WebView storage.
 - Release builds use R8 full-mode minification/obfuscation, optimization, and
   resource shrinking. Preserve the private release mapping file if a release
@@ -151,13 +156,13 @@ $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 .\gradlew.bat assembleDebug
 ```
 
-Last validation on 2026-08-27:
+Last validation on 2026-08-27 after adding Android game classification:
 
-- Result: `BUILD SUCCESSFUL` (3 tasks executed, 29 up to date).
+- Result: `BUILD SUCCESSFUL` (5 tasks executed, 27 up to date).
 - APK: `app\build\outputs\apk\debug\app-debug.apk`.
-- Size: 25,022,737 bytes (23.86 MiB).
+- Size: 25,104,036 bytes (23.94 MiB).
 - SHA-256:
-  `94F131FE7FBE357308610ECC95529AB6616A4927F7AB0C1886A82A82098CF318`.
+  `B61213011F72FB082D4757AB588CB3E6C77A1809ECC88E637BEED244E6489E62`.
 - Only Gradle deprecation warnings were reported.
 
 Release build command:
@@ -178,8 +183,13 @@ The unsigned release APK and obfuscation mapping are written below
   `adb-143382554V110204-i5F3gb._adb-tls-connect._tcp`.
 - ADB executable:
   `C:\Users\benig\AppData\Local\Android\Sdk\platform-tools\adb.exe`.
-- Last observed `com.jester.minidayz` PID: `20637` (ephemeral; query it again
+- Last observed `com.jester.minidayz` PID: `24008` (ephemeral; query it again
   before debugging).
+- Current installed debug APK: SHA-256
+  `B61213011F72FB082D4757AB588CB3E6C77A1809ECC88E637BEED244E6489E62`.
+- Installation was verified on Android API 36: `MainActivity` was resumed and
+  focused, PID `24008` was active, and `cmd game list-modes` reported
+  `current mode: standard, available game modes: [standard,custom]`.
 - The older `io.github.nextdev65.minidayz` package was not present after the
   renamed build was installed.
 
@@ -234,16 +244,13 @@ Useful obfuscated runtime details found during the last session:
   ground item near the player.
 - Item display name was observed at `cc[10]`; item ID at `cc[16]`.
 
-As the last live action, the empty-rifle and infinity placeholders were
-hot-prototyped in the running WebView by temporarily wrapping the HUD canvas's
-`drawImage`. The wrapper must check the active quick-switch category and
-equipped `player_weapons` instance before drawing: an earlier unconditional
-version leaked the placeholder rifle and infinity mark beneath an equipped
-Mosin. The corrected live wrapper now mirrors `findEquippedWeapon()`; both the
-empty state and equipped Mosin state were visually verified. This runtime-only
-prototype disappears on WebView/app reload; the durable implementation was
-already conditional in `docs/game-ui-compatibility.js`. No APK containing this
-change was installed.
+The empty-rifle and infinity placeholders were originally hot-prototyped by
+temporarily wrapping the HUD canvas's `drawImage`. The wrapper had to check the
+active quick-switch category and equipped `player_weapons` instance: an earlier
+unconditional version leaked the placeholder rifle and infinity mark beneath
+an equipped Mosin. Both the empty state and equipped Mosin state were visually
+verified. The durable conditional implementation in
+`docs/game-ui-compatibility.js` is now included in the installed APK.
 
 The first main-menu scenery revision generated a green-palette copy of
 `runtime.types.t980.N` (`ground_lvl5_tilemap.png`). Device review showed that
@@ -261,14 +268,12 @@ when their selected image changes, and their original images are restored
 outside Menu. Fresh-WebView initialization still requires nonzero image
 dimensions and remains retryable.
 
-This native composition is active on the connected device as a runtime-only
-prototype and was visually verified across multiple moving-menu camera views.
-The prototype disappears on WebView/app reload. The durable implementation is
+The durable native composition is now active from the installed APK and was
+visually verified after a forced app restart. Its implementation is
 `updateMenuScenery()`, `createNativeMenuEnvironment()`, and
-`applyTilemapImage()` in `docs/game-ui-compatibility.js`. A corrected APK was
-built successfully but was not installed, following the user's no-install
-preference. The earlier installed build was also verified to keep forcing
-`GUI_control_type` from `0` back to stick mode `1`.
+`applyTilemapImage()` in `docs/game-ui-compatibility.js`. The prior runtime-only
+prototype disappeared during the restart as expected. Stick movement forcing
+was previously verified to restore `GUI_control_type` from `0` to `1`.
 
 ## Suggested next action
 

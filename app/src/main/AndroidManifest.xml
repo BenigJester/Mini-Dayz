@@ -16,8 +16,10 @@
 
     <application
         android:allowBackup="false"
+        android:appCategory="game"
         android:hardwareAccelerated="true"
         android:icon="@drawable/icon"
+        android:isGame="true"
         android:label="MiniDayZ"
         android:resizeableActivity="true"
         android:supportsRtl="true"
