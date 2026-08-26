@@ -31,6 +31,26 @@
     // frame and scenery stay full bleed; only readable text and the close
     // control are moved into the hardware-safe content area.
     var ACHIEVEMENT_TEXT_TYPES = [363, 364, 371];
+    var WINTER_MENU_GROUND_PATH = "images/ground_lvl5_tilemap.png";
+    var NATIVE_MENU_GROUND_PATH = "images/ground_lvl1_tilemap.png";
+    var MENU_ENVIRONMENT_PATH = "images/ground_enviroment_tilemap.png";
+    var ENVIRONMENT_TILE_SIZE = 30;
+    var ENVIRONMENT_TILE_COLUMNS = 5;
+    // Replace only winter scenery cells with shape-compatible, non-winter
+    // cells from the same native atlas. Nothing here is recolored or redrawn.
+    var NATIVE_MENU_ENVIRONMENT_TILES = {
+        56: 5,
+        57: 0,
+        58: 1,
+        67: 0,
+        68: 10,
+        72: 14,
+        75: 5,
+        76: 6,
+        77: 0,
+        78: 10
+    };
+    var menuSceneryState = null;
     // v2 discards the stale layout written by the first customization build.
     // That build could save an invisible control at an unintended coordinate.
     var CONTROL_POSITION_STORAGE_KEY = "minidayz.custom-control-positions.v2";
@@ -1157,6 +1177,160 @@
         return null;
     }
 
+    function findTypeByImagePath(runtime, imagePath) {
+        if (!runtime.types) {
+            return null;
+        }
+
+        for (var typeName in runtime.types) {
+            if (!Object.prototype.hasOwnProperty.call(runtime.types, typeName)) {
+                continue;
+            }
+            var type = runtime.types[typeName];
+            if (type && !type.R && type.Ni === imagePath) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    function createNativeMenuEnvironment(source, onReady, onError) {
+        if (!source.width || !source.height) {
+            onError();
+            return;
+        }
+
+        var canvas = document.createElement("canvas");
+        canvas.width = source.naturalWidth || source.width;
+        canvas.height = source.naturalHeight || source.height;
+        var context;
+        try {
+            context = canvas.getContext("2d");
+            context.drawImage(source, 0, 0);
+            for (var winterTile in NATIVE_MENU_ENVIRONMENT_TILES) {
+                if (!Object.prototype.hasOwnProperty.call(
+                        NATIVE_MENU_ENVIRONMENT_TILES, winterTile)) {
+                    continue;
+                }
+
+                var nativeTile = NATIVE_MENU_ENVIRONMENT_TILES[winterTile];
+                var destinationIndex = Number(winterTile);
+                var destinationX = destinationIndex
+                        % ENVIRONMENT_TILE_COLUMNS * ENVIRONMENT_TILE_SIZE;
+                var destinationY = Math.floor(
+                        destinationIndex / ENVIRONMENT_TILE_COLUMNS)
+                        * ENVIRONMENT_TILE_SIZE;
+                var sourceX = nativeTile
+                        % ENVIRONMENT_TILE_COLUMNS * ENVIRONMENT_TILE_SIZE;
+                var sourceY = Math.floor(
+                        nativeTile / ENVIRONMENT_TILE_COLUMNS)
+                        * ENVIRONMENT_TILE_SIZE;
+
+                context.clearRect(
+                        destinationX, destinationY,
+                        ENVIRONMENT_TILE_SIZE, ENVIRONMENT_TILE_SIZE);
+                context.drawImage(
+                        source,
+                        sourceX, sourceY,
+                        ENVIRONMENT_TILE_SIZE, ENVIRONMENT_TILE_SIZE,
+                        destinationX, destinationY,
+                        ENVIRONMENT_TILE_SIZE, ENVIRONMENT_TILE_SIZE);
+            }
+        } catch (error) {
+            onError();
+            return;
+        }
+        var image = new Image();
+        image.onload = function () {
+            onReady(image);
+        };
+        image.onerror = onError;
+        image.src = canvas.toDataURL("image/png");
+    }
+
+    function applyTilemapImage(state, desiredImage) {
+        if (!state || !desiredImage || state.appliedImage === desiredImage) {
+            return;
+        }
+
+        state.target.N = desiredImage;
+        state.appliedImage = desiredImage;
+        // Tilemaps cache individual WebGL textures independently of N.
+        // Invalidate those slices only when the active atlas changes.
+        if (typeof state.target.Nr === "function") {
+            state.target.Nr();
+        }
+    }
+
+    function updateMenuScenery(runtime) {
+        if (!menuSceneryState) {
+            var winterGround = findTypeByImagePath(
+                    runtime, WINTER_MENU_GROUND_PATH);
+            var nativeGround = findTypeByImagePath(
+                    runtime, NATIVE_MENU_GROUND_PATH);
+            var environment = findTypeByImagePath(
+                    runtime, MENU_ENVIRONMENT_PATH);
+            if (!winterGround || !winterGround.N
+                    || !nativeGround || !nativeGround.N
+                    || !environment || !environment.N) {
+                return;
+            }
+            menuSceneryState = {
+                ground: {
+                    target: winterGround,
+                    originalImage: winterGround.N,
+                    nativeImage: nativeGround.N,
+                    appliedImage: winterGround.N
+                },
+                environment: {
+                    target: environment,
+                    originalImage: environment.N,
+                    nativeImage: null,
+                    loading: false,
+                    appliedImage: environment.N
+                }
+            };
+        }
+
+        var environmentState = menuSceneryState.environment;
+        if (!environmentState.nativeImage && !environmentState.loading
+                && environmentState.originalImage.complete
+                && environmentState.originalImage.width > 0
+                && environmentState.originalImage.height > 0) {
+            environmentState.loading = true;
+            createNativeMenuEnvironment(
+                    environmentState.originalImage,
+                    function (image) {
+                        environmentState.nativeImage = image;
+                        environmentState.loading = false;
+                    },
+                    function () {
+                        // Leave the initializer retryable on a later frame.
+                        environmentState.loading = false;
+                    });
+        }
+
+        // The Menu layout was authored with winter tile indices. Keep that
+        // layout, but render it with the game's native level-one ground and
+        // shape-compatible non-winter environment cells. Restore both source
+        // atlases before gameplay so island terrain remains untouched.
+        var inMenu = runtime.wa.name === "Menu";
+        var groundState = menuSceneryState.ground;
+        var nativeGroundReady = groundState.nativeImage.complete
+                && groundState.nativeImage.width > 0
+                && groundState.nativeImage.height > 0;
+        applyTilemapImage(
+                groundState,
+                inMenu && nativeGroundReady
+                        ? groundState.nativeImage
+                        : groundState.originalImage);
+        applyTilemapImage(
+                environmentState,
+                inMenu && environmentState.nativeImage
+                        ? environmentState.nativeImage
+                        : environmentState.originalImage);
+    }
+
     function instancesForTypes(runtime, typeIndexes) {
         var instances = [];
         for (var typeIndex = 0; typeIndex < typeIndexes.length; typeIndex += 1) {
@@ -2043,6 +2217,7 @@
         }
 
         var insets = screen.getInsets();
+        updateMenuScenery(runtime);
         forceStickMovement(runtime);
         removeMovementSetting(runtime);
         var customizingControls = isControlCustomizationOpen(runtime);

@@ -16,8 +16,8 @@ Use the running game as evidence, prototype reversible changes through Chrome De
 
 ## Inspect before changing
 
-1. Get the current ADB path, serial, package, and relevant runtime notes from `HANDOFF.md`. Re-query the PID because it is ephemeral.
-2. Capture the current screen before diagnosing. Store temporary captures below `build/temporary-screen-captures/` so they do not pollute the working tree.
+1. Get the current ADB path, serial, package, and relevant runtime notes from `HANDOFF.md`. Re-query the PID because it is ephemeral. During a package rename, check both the source `applicationId` and installed packages; pass `--package` explicitly to the CDP helper instead of trusting its default.
+2. Capture the current screen before diagnosing. Store temporary captures below `build/temporary-screen-captures/` so they do not pollute the working tree. In PowerShell, avoid redirecting `adb exec-out screencap -p` because shell text encoding can corrupt the PNG. Capture to an explicit device path, then use `adb pull`.
 3. Inspect the image at original detail. Diagnose from the visible state and runtime values rather than assuming the previous screen is still active.
 4. For runtime inspection, pipe a JavaScript expression to `scripts/webview-cdp-eval.mjs`, resolving the script path relative to this skill directory. The helper discovers the current PID, creates the ADB forward, connects to the page, evaluates the expression, and returns its value.
 
@@ -42,6 +42,7 @@ Use `--file <path>` when the probe is substantial. Run the helper with `--help` 
 - Instance variables are in `.cc`. The instance layer is `.C`; `.C.name` is the layer name, not the object type name.
 - Global/event variables are in `runtime.tD`, with readable `.name` and current `.data`.
 - Type frames are commonly in `.ve`; an instance's current frame is `.mc`. Frame image/crop fields are `.N`, `.Wj`, `.Xj`, `.width`, and `.height`.
+- Construct tilemaps keep per-tile WebGL textures in the type's `.Ph` cache. After changing a tilemap type's source image `.N`, call its `.Nr()` method to delete those cached slices; otherwise the old texture can remain visible even though runtime inspection reports the new image.
 - Call `.P()` after changing a Construct instance's position, size, or visibility when the renderer needs its bounds refreshed.
 - Known project anchors include player `t181`, settings plank/text families `t1052`/`t1053`, and the inventory empty-rifle frame `runtime.types.t1.ve[0]`. Prefer discovery and validation over assuming an obfuscated index is permanent.
 
@@ -55,6 +56,8 @@ Record newly verified mappings in `HANDOFF.md`, including the screen/state where
 - Mirror the durable condition, not merely the current screenshot. Check both sides of the state transition: empty/equipped, gameplay/editor, pressed/released, open/closed, as applicable.
 - Do not leave placeholder artwork unconditional. The weapon HUD, for example, must draw the empty rifle and infinity only when no firearm is equipped; otherwise it ghosts beneath the real weapon and ammo count.
 - Reapply state in the compatibility requestAnimationFrame loop only when original Construct events can reset it on later ticks.
+- For layout-scoped texture changes, preserve the original image, swap only in the intended layout, restore it when that layout closes, and invalidate the tile cache only when the selected image actually changes.
+- At fresh WebView startup, do not treat `HTMLImageElement.complete` alone as readiness: require nonzero image dimensions. Keep asynchronous image initialization retryable and contain expected canvas/image errors so one early asset race cannot terminate the compatibility animation loop.
 
 ## Persist and verify
 
@@ -65,3 +68,9 @@ Record newly verified mappings in `HANDOFF.md`, including the screen/state where
 - Run `node --check docs/game-ui-compatibility.js` and `git diff --check` after JavaScript changes.
 - Build with the repository's documented Gradle command when useful, record the APK size/hash, and do not install it without an explicit request.
 - Finish with a fresh device screenshot and, when behavior is conditional, verify every materially different state. Report the visible result first.
+
+## Install when authorized
+
+- Before installation, verify the APK's package/version metadata and confirm whether that package is already installed. A renamed application ID installs alongside the old app and starts with separate WebView storage; tell the user rather than implying it is an in-place update.
+- Use `adb install -r` only after explicit installation authorization. Launch the exact package/activity, re-query its PID, and verify the focused activity, installed version, and a fresh screenshot.
+- Update `HANDOFF.md` with the installed package, current ephemeral PID, verification result, and whether the older package remains installed.

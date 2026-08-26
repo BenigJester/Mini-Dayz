@@ -8,25 +8,19 @@ This repository contains a customized MiniDayZ 1.5.0 Android build. The browser
 game in `docs/` is packaged in a lightweight native WebView shell, supports
 modern Android landscape screens, and has a replacement touch-control overlay.
 
-The current debug build succeeds and the connected Infinix device reports the
-installed package as version 1.5.0 (`versionCode 150`). The app is currently
-running on that device.
+The current debug build succeeds and package `com.jester.minidayz` is installed
+and running on the connected Infinix device. The newest native-menu-scenery
+change is active as a reversible live patch and is present in the rebuilt APK,
+but that APK has not been installed. The renamed package started with fresh
+WebView storage. The older `io.github.nextdev65.minidayz` package was not
+present after installation.
 
 ## Protect the working tree
 
-The base repository is still at commit `40ac9cf` on `main`, and nearly all
-customization work is uncommitted. Do not reset, clean, checkout, or overwrite
-the working tree. In particular, the Android wrapper, compatibility scripts,
-modern control assets, Gradle wrapper, and asset tools are currently untracked.
-
-The current intentional changes include:
-
-- Modified game/runtime files under `docs/`.
-- New Android project files under `app/` plus the root Gradle files.
-- New compatibility scripts and modern assets under `docs/`.
-- New asset source/build tooling under `tools/`.
-- Deleted legacy README artwork: `survivor.png`, `reloaded_survivor.png`, and
-  `reloaded_survivor.jpg`.
+The customized project was imported at commit `3e3aff2` on `main` and pushed to
+the private `BenigJester/Mini-Dayz` origin. The original public repository is
+preserved as the `upstream` remote. Do not reset, clean, checkout, or overwrite
+new user-led work in the working tree.
 
 Known cleanup item: `README.md` still links to the deleted `survivor.png`, so
 that badge is broken. Decide whether to remove the badge or restore an image
@@ -108,6 +102,12 @@ not blindly rename internal IDs without checking save/package compatibility.
 - Original Construct control sprite images are fully transparent to prevent
   them flashing during startup or pause. Their original dimensions and runtime
   instances remain intact for hit testing and Construct event logic.
+- The main-menu terrain now uses the game's untouched native level-one ground
+  atlas instead of recoloring level-five snow. The menu's winter rock and stump
+  cells are replaced with shape-compatible non-winter cells copied from the
+  same native environment atlas, so the composition keeps MiniDayZ's original
+  pixel art and palette. Both original atlases are restored as soon as Menu
+  closes, so gameplay terrain is not changed.
 
 The game exposes three quick-switch categories: melee/bare hands, pistol, and
 two-handed firearm. Each category holds one equipped weapon at a time.
@@ -117,10 +117,12 @@ two-handed firearm. Each category holds one equipped weapon at a time.
 - Project-local workflow skill: `$minidayz-live-runtime`, stored at
   `.agents/skills/minidayz-live-runtime`. It captures the
   screen-first ADB/CDP hot-patching workflow, Construct runtime landmarks,
-  conditional-state verification, source persistence, and the no-install
-  default. Its `scripts/webview-cdp-eval.mjs` helper evaluates piped JavaScript
-  directly in the running WebView without rewriting the CDP connection setup.
-- `app/src/main/java/io/github/nextdev65/minidayz/MainActivity.java` — WebView,
+  conditional-state verification, package-migration/install checks, safe
+  PowerShell screen capture, tilemap cache invalidation, source persistence,
+  and the no-install default. Its `scripts/webview-cdp-eval.mjs` helper
+  evaluates piped JavaScript directly in the running WebView without rewriting
+  the CDP connection setup.
+- `app/src/main/java/com/jester/minidayz/MainActivity.java` — WebView,
   immersive mode, hardware inset collection, and Android lifecycle handling.
 - `app/build.gradle` — SDK/version/build types and `docs/` asset packaging.
 - `app/proguard-rules.pro` — release obfuscation rules.
@@ -134,7 +136,7 @@ two-handed firearm. Each category holds one equipped weapon at a time.
 - `tools/approved-control-sources/` — the six user-approved source renders.
 - `tools/build-control-assets.ps1` — rebuilds runtime assets, removes pixels
   outside circular controls, and clears legacy control artwork.
-- `docs/offline.js` — offline cache list/version; currently `1644057382`.
+- `docs/offline.js` — offline cache list/version; currently `1644057385`.
 
 When changing any cached web asset, bump the numeric version in
 `docs/offline.js` so browser/service-worker clients do not retain stale files.
@@ -153,9 +155,9 @@ Last validation on 2026-08-27:
 
 - Result: `BUILD SUCCESSFUL` (3 tasks executed, 29 up to date).
 - APK: `app\build\outputs\apk\debug\app-debug.apk`.
-- Size: 25,208,268 bytes (24.04 MiB).
+- Size: 25,022,737 bytes (23.86 MiB).
 - SHA-256:
-  `717CC3F563F92BFDE2438B440443B20A032711B2E8F42BDEA8DE273A063958D2`.
+  `94F131FE7FBE357308610ECC95529AB6616A4927F7AB0C1886A82A82098CF318`.
 - Only Gradle deprecation warnings were reported.
 
 Release build command:
@@ -176,7 +178,10 @@ The unsigned release APK and obfuscation mapping are written below
   `adb-143382554V110204-i5F3gb._adb-tls-connect._tcp`.
 - ADB executable:
   `C:\Users\benig\AppData\Local\Android\Sdk\platform-tools\adb.exe`.
-- Last observed app PID: `6557` (ephemeral; query it again before debugging).
+- Last observed `com.jester.minidayz` PID: `20637` (ephemeral; query it again
+  before debugging).
+- The older `io.github.nextdev65.minidayz` package was not present after the
+  renamed build was installed.
 
 Install the current debug APK without clearing game data:
 
@@ -199,8 +204,7 @@ emitted new logs since then; do not assume it is still empty.
 
 The running WebView can be inspected through Chrome DevTools Protocol:
 
-1. Query the current PID with
-   `adb shell pidof com.jester.minidayz`.
+1. Query the current PID with `adb shell pidof com.jester.minidayz`.
 2. Forward a local port to `webview_devtools_remote_<PID>`.
 3. Open `http://127.0.0.1:9222/json` and use the returned WebSocket URL.
 4. Evaluate against `cr_getC2Runtime()`.
@@ -240,6 +244,31 @@ empty state and equipped Mosin state were visually verified. This runtime-only
 prototype disappears on WebView/app reload; the durable implementation was
 already conditional in `docs/game-ui-compatibility.js`. No APK containing this
 change was installed.
+
+The first main-menu scenery revision generated a green-palette copy of
+`runtime.types.t980.N` (`ground_lvl5_tilemap.png`). Device review showed that
+this still looked like recolored snow because the Menu layout also selects
+winter prop cells from the shared environment tilemap.
+
+The replacement uses only native game artwork. `runtime.types.t482.N` is the
+level-one `ground_lvl1_tilemap.png` atlas and is index-compatible with Menu's
+`runtime.types.t980` ground layout. `runtime.types.t230` is the 5-column,
+30-pixel-cell `ground_enviroment_tilemap.png` atlas. Menu uses winter rock/stump
+indices 56-58, 67-68, 72, and 75-78; the compatibility code copies matching
+non-winter cells 5, 0, 1, 0, 10, 14, 5, 6, 0, and 10 into those slots in an
+in-memory atlas. No pixels are recolored. Both tilemap types call `Nr()` only
+when their selected image changes, and their original images are restored
+outside Menu. Fresh-WebView initialization still requires nonzero image
+dimensions and remains retryable.
+
+This native composition is active on the connected device as a runtime-only
+prototype and was visually verified across multiple moving-menu camera views.
+The prototype disappears on WebView/app reload. The durable implementation is
+`updateMenuScenery()`, `createNativeMenuEnvironment()`, and
+`applyTilemapImage()` in `docs/game-ui-compatibility.js`. A corrected APK was
+built successfully but was not installed, following the user's no-install
+preference. The earlier installed build was also verified to keep forcing
+`GUI_control_type` from `0` back to stick mode `1`.
 
 ## Suggested next action
 
