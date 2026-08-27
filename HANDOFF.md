@@ -1,6 +1,6 @@
 # Local handoff: MiniDayZ Android customization
 
-Last updated: 2026-08-27 (Asia/Manila)
+Last updated: 2026-08-28 (Asia/Manila)
 
 ## Current outcome
 
@@ -18,13 +18,12 @@ renamed package started with fresh WebView storage. The older
 ## Protect the working tree
 
 The customized project was imported at commit `3e3aff2` on `main` and pushed to
-the private `BenigJester/Mini-Dayz` origin. The original public repository is
-preserved as the `upstream` remote. Do not reset, clean, checkout, or overwrite
-new user-led work in the working tree.
+the `BenigJester/Mini-Dayz` origin. The original public repository is preserved
+as the `upstream` remote. Do not reset, clean, checkout, or overwrite new
+user-led work in the working tree.
 
-Known cleanup item: `README.md` still links to the deleted `survivor.png`, so
-that badge is broken. Decide whether to remove the badge or restore an image
-before committing.
+The public README now uses the authentic release launcher artwork, documents
+the signed 1.5.0 APK, and preserves upstream and Bohemia Interactive attribution.
 
 ## Implemented work
 
@@ -42,8 +41,10 @@ before committing.
   interventions instead of the app accidentally overriding them.
 - Game progress remains in persistent WebView storage.
 - Release builds use R8 full-mode minification/obfuscation, optimization, and
-  resource shrinking. Preserve the private release mapping file if a release
-  is distributed.
+  resource shrinking. When the ignored root `keystore.properties` file is
+  present, Gradle signs the release with the existing private
+  `release-key.jks`; neither credential file is committed. Preserve the private
+  release mapping file if a release is distributed.
 
 ### Screen compatibility
 
@@ -148,10 +149,10 @@ When changing any cached web asset, bump the numeric version in
 
 ## Reproducible build
 
-This shell does not currently define the Android SDK environment variable. Use:
+If the shell does not define the Android SDK environment variable, use:
 
 ```powershell
-$env:ANDROID_HOME = 'C:\Users\benig\AppData\Local\Android\Sdk'
+$env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 .\gradlew.bat assembleDebug
 ```
@@ -168,27 +169,51 @@ Last validation on 2026-08-27 after adding Android game classification:
 Release build command:
 
 ```powershell
-$env:ANDROID_HOME = 'C:\Users\benig\AppData\Local\Android\Sdk'
+$env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 .\gradlew.bat assembleRelease
 ```
 
-The unsigned release APK and obfuscation mapping are written below
-`app\build\outputs\`.
+With the ignored root signing files present, the signed release APK and its
+obfuscation mapping are written below `app\build\outputs\`. Without
+`keystore.properties`, Gradle still produces an unsigned release for CI or
+local inspection.
+
+Official release validation on 2026-08-27:
+
+- Result: `BUILD SUCCESSFUL` (42 tasks executed), including R8, resource
+  shrinking, release lint, and signing validation.
+- Distributable APK: `artifacts\release\MiniDayZ-1.5.0-release.apk`.
+- APK size: 24,534,552 bytes (23.40 MiB).
+- APK SHA-256:
+  `A0C67D4248A2ECA82CC383BEDAD0E37065BD5FA3A965DAE59351EB722D9EBEE4`.
+- Signing certificate SHA-256:
+  `AA65ABF5EB089BFD92E3138A9BFA0D6BA8E0F875FF0B26E295AF656D67CCDA29`.
+- APK Signature Schemes v1 and v2 verify successfully; zip alignment verifies.
+- Verified metadata: package `com.jester.minidayz`, version name `1.5.0`,
+  version code `150`, minimum SDK 23, target SDK 36, label `MiniDayZ`.
+- Verified packaged assets include `index.html`, `c2runtime.js`, `data.js`, and
+  `game-ui-compatibility.js`.
+- Private R8 mapping copy:
+  `artifacts\release\MiniDayZ-1.5.0-mapping.txt`, SHA-256
+  `D4861BC20111C577FB758F8522FEB5B68560E8E5D54CEF8463E5832D9A8D2D7C`.
+- The signed APK is published as GitHub release `v1.5.0` at
+  `https://github.com/BenigJester/Mini-Dayz/releases/tag/v1.5.0`. It was not
+  installed over the device's differently signed debug build.
 
 ## Connected device and installation
 
-- Device: Infinix X6873.
-- ADB serial:
-  `adb-143382554V110204-i5F3gb._adb-tls-connect._tcp`.
-- ADB executable:
-  `C:\Users\benig\AppData\Local\Android\Sdk\platform-tools\adb.exe`.
-- Last observed `com.jester.minidayz` PID: `24008` (ephemeral; query it again
-  before debugging).
+- Device validation used an Android API 36 handset.
+- Query the active ADB serial and application PID again before debugging; both
+  are ephemeral and deliberately not recorded in the public repository.
 - Current installed debug APK: SHA-256
   `B61213011F72FB082D4757AB588CB3E6C77A1809ECC88E637BEED244E6489E62`.
+- The official release certificate differs from the debug certificate used by
+  the currently installed build. Android will not accept the official APK as
+  an in-place update over that debug install. Do not uninstall or replace it
+  without an explicit save-migration/data-loss decision from the user.
 - Installation was verified on Android API 36: `MainActivity` was resumed and
-  focused, PID `24008` was active, and `cmd game list-modes` reported
+  focused, the process remained active, and `cmd game list-modes` reported
   `current mode: standard, available game modes: [standard,custom]`.
 - The older `io.github.nextdev65.minidayz` package was not present after the
   renamed build was installed.
@@ -196,8 +221,8 @@ The unsigned release APK and obfuscation mapping are written below
 Install the current debug APK without clearing game data:
 
 ```powershell
-$adb = 'C:\Users\benig\AppData\Local\Android\Sdk\platform-tools\adb.exe'
-$serial = 'adb-143382554V110204-i5F3gb._adb-tls-connect._tcp'
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+$serial = '<adb-serial>'
 & $adb -s $serial install -r 'app\build\outputs\apk\debug\app-debug.apk'
 ```
 

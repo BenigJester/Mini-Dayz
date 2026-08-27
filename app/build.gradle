@@ -2,6 +2,14 @@ plugins {
     id "com.android.application"
 }
 
+def releaseKeystorePropertiesFile = rootProject.file("keystore.properties")
+def releaseKeystoreProperties = new Properties()
+if (releaseKeystorePropertiesFile.exists()) {
+    releaseKeystorePropertiesFile.withInputStream {
+        releaseKeystoreProperties.load(it)
+    }
+}
+
 android {
     namespace "com.jester.minidayz"
     compileSdk 36
@@ -19,6 +27,17 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        release {
+            if (releaseKeystorePropertiesFile.exists()) {
+                storeFile rootProject.file(releaseKeystoreProperties["storeFile"])
+                storePassword releaseKeystoreProperties["storePassword"]
+                keyAlias releaseKeystoreProperties["keyAlias"]
+                keyPassword releaseKeystoreProperties["keyPassword"]
+            }
+        }
+    }
+
     buildTypes {
         debug {
             minifyEnabled false
@@ -30,6 +49,9 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            if (releaseKeystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
